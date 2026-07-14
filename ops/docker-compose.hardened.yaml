@@ -25,7 +25,7 @@ services:
 
   penpot-frontend:
     # Pin: penpotapp/frontend:2.16 — re-verify on each release
-    image: penpotapp/frontend:2.16@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    image: penpotapp/frontend:2.16@sha256:4725b4698d8d1bd25ee1666e0d900d20da8937fea845c6a088f76cd69293560b
     restart: unless-stopped
     ports:
       - "9001:80"
@@ -39,7 +39,7 @@ services:
 
   penpot-backend:
     # Pin: penpotapp/backend:2.16 — re-verify on each release
-    image: penpotapp/backend:2.16@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    image: penpotapp/backend:2.16@sha256:6c8e3851f3734e98e48d5a4a68e2c64485f6bd67a1ffec809aa9f1847d90a646
     restart: unless-stopped
     volumes:
       - penpot_assets:/opt/data/assets
@@ -68,12 +68,14 @@ services:
       # PENPOT_SMTP_DEFAULT_FROM: "${PENPOT_SMTP_DEFAULT_FROM}"
       # PENPOT_SMTP_DEFAULT_REPLY_TO: "${PENPOT_SMTP_DEFAULT_REPLY_TO}"
       # Flags — removed disable-secure-session-cookies and disable-email-verification
+      # enable-registration: allows new accounts to be created from the login page
+      # Disable this after creating your initial account if you want a closed instance
       # Add enable-smtp after configuring SMTP above
-      PENPOT_FLAGS: "enable-login-with-password"
+      PENPOT_FLAGS: "enable-login-with-password enable-registration"
 
   penpot-exporter:
     # Pin: penpotapp/exporter:2.16 — re-verify on each release
-    image: penpotapp/exporter:2.16@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    image: penpotapp/exporter:2.16@sha256:b370f14927050fb05ac646441b5993d9337dda7eec60d944aa112819c88207bc
     restart: unless-stopped
     environment:
       PENPOT_PUBLIC_URI: "http://penpot-frontend"
@@ -81,7 +83,7 @@ services:
 
   penpot-postgres:
     # Pin: postgres:15 — re-verify on each release
-    image: postgres:15@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    image: postgres:15@sha256:3b0d656f5fff31c7d8a64f500a703dcf3f35e98ce78f602831a73059a5e6a012
     restart: unless-stopped
     stop_signal: SIGINT
     volumes:
@@ -99,7 +101,7 @@ services:
 
   penpot-redis:
     # Pin: redis:7 — re-verify on each release
-    image: redis:7@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    image: redis:7@sha256:b2b95679e3b46fb51864949ed25ea976fc3a6bcc00a40a1bc00d568cb2822e50
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

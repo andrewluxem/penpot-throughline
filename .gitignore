@@ -1,0 +1,23 @@
+# Environment / secrets — never commit these
+ops/.env
+*.env
+.env.*
+!ops/.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (for future skill development)
+node_modules/
+dist/
+.claude/
+
+# Logs
+*.log

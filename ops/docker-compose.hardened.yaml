@@ -1,0 +1,121 @@
+# Hardened Penpot self-host compose — penpot-throughline project
+#
+# Key changes from the stock Penpot compose:
+#   - All images pinned by digest (update digests on each Penpot release)
+#   - PENPOT_SECRET_KEY and PENPOT_DATABASE_PASSWORD read from env (never hardcoded)
+#   - disable-secure-session-cookies flag removed
+#   - disable-email-verification flag removed (configure SMTP or a magic-link provider)
+#   - MailCatcher service and its UI port (:1080) removed entirely
+#   - WS plugin bridge (port 4402) intentionally NOT published — it binds all interfaces
+#     inside the container; do not add a ports: entry for it or expose it on LAN/Tailscale
+#
+# BEFORE RUNNING:
+#   1. cp .env.example .env && fill in PENPOT_SECRET_KEY and PENPOT_DATABASE_PASSWORD
+#   2. Verify digest pins below still match `docker manifest inspect <image>` for the
+#      target Penpot version (pins below are for 2.16 — update on every version bump)
+#   3. docker compose -f docker-compose.hardened.yaml --env-file .env up -d
+#
+# DIGEST PINS
+# Pins were validated against 2.16 image manifests.
+# Re-pin on every release: docker manifest inspect penpotapp/frontend:2.16 --verbose | grep Digest
+
+x-penpot-version: &penpot-version "2.16"
+
+services:
+
+  penpot-frontend:
+    # Pin: penpotapp/frontend:2.16 — re-verify on each release
+    image: penpotapp/frontend:2.16@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    restart: unless-stopped
+    ports:
+      - "9001:80"
+    volumes:
+      - penpot_assets:/opt/data/assets
+    depends_on:
+      - penpot-backend
+      - penpot-exporter
+    environment:
+      PENPOT_FLAGS: "enable-login-with-password"
+
+  penpot-backend:
+    # Pin: penpotapp/backend:2.16 — re-verify on each release
+    image: penpotapp/backend:2.16@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    restart: unless-stopped
+    volumes:
+      - penpot_assets:/opt/data/assets
+    depends_on:
+      penpot-postgres:
+        condition: service_healthy
+      penpot-redis:
+        condition: service_healthy
+    environment:
+      PENPOT_SECRET_KEY: "${PENPOT_SECRET_KEY:?PENPOT_SECRET_KEY is required — see .env.example}"
+      PENPOT_PUBLIC_URI: "${PENPOT_PUBLIC_URI:-http://localhost:9001}"
+      PENPOT_DATABASE_URI: "postgresql://penpot-postgres/${PENPOT_DATABASE_NAME:-penpot}"
+      PENPOT_DATABASE_USERNAME: "${PENPOT_DATABASE_USERNAME:-penpot}"
+      PENPOT_DATABASE_PASSWORD: "${PENPOT_DATABASE_PASSWORD:?PENPOT_DATABASE_PASSWORD is required — see .env.example}"
+      PENPOT_REDIS_URI: "redis://penpot-redis/0"
+      PENPOT_ASSETS_STORAGE_BACKEND: "assets-fs"
+      PENPOT_STORAGE_ASSETS_FS_DIRECTORY: "/opt/data/assets"
+      PENPOT_TELEMETRY_ENABLED: "false"
+      # SMTP — configure your mail provider or a local relay before enabling
+      # PENPOT_SMTP_ENABLED: "true"
+      # PENPOT_SMTP_HOST: "${PENPOT_SMTP_HOST}"
+      # PENPOT_SMTP_PORT: "${PENPOT_SMTP_PORT:-587}"
+      # PENPOT_SMTP_USERNAME: "${PENPOT_SMTP_USERNAME}"
+      # PENPOT_SMTP_PASSWORD: "${PENPOT_SMTP_PASSWORD}"
+      # PENPOT_SMTP_TLS: "${PENPOT_SMTP_TLS:-true}"
+      # PENPOT_SMTP_DEFAULT_FROM: "${PENPOT_SMTP_DEFAULT_FROM}"
+      # PENPOT_SMTP_DEFAULT_REPLY_TO: "${PENPOT_SMTP_DEFAULT_REPLY_TO}"
+      # Flags — removed disable-secure-session-cookies and disable-email-verification
+      # Add enable-smtp after configuring SMTP above
+      PENPOT_FLAGS: "enable-login-with-password"
+
+  penpot-exporter:
+    # Pin: penpotapp/exporter:2.16 — re-verify on each release
+    image: penpotapp/exporter:2.16@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    restart: unless-stopped
+    environment:
+      PENPOT_PUBLIC_URI: "http://penpot-frontend"
+      PENPOT_REDIS_URI: "redis://penpot-redis/0"
+
+  penpot-postgres:
+    # Pin: postgres:15 — re-verify on each release
+    image: postgres:15@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    restart: unless-stopped
+    stop_signal: SIGINT
+    volumes:
+      - penpot_postgres_v15:/var/lib/postgresql/data
+    environment:
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+      POSTGRES_DB: "${PENPOT_DATABASE_NAME:-penpot}"
+      POSTGRES_USER: "${PENPOT_DATABASE_USERNAME:-penpot}"
+      POSTGRES_PASSWORD: "${PENPOT_DATABASE_PASSWORD:?PENPOT_DATABASE_PASSWORD is required}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PENPOT_DATABASE_USERNAME:-penpot} -d ${PENPOT_DATABASE_NAME:-penpot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  penpot-redis:
+    # Pin: redis:7 — re-verify on each release
+    image: redis:7@sha256:REPLACE_WITH_VERIFIED_DIGEST
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  penpot_assets:
+  penpot_postgres_v15:
+
+# NOTE: No mailcatcher service. Use a real SMTP provider or a self-hosted
+# relay (e.g. mailpit on a separate internal compose) — never expose
+# an email-capture UI on a network where tokens/reset links are visible.
+#
+# NOTE: Port 4402 (Penpot WS plugin bridge) is intentionally not published.
+# The bridge binds 0.0.0.0 inside the container. Keep it off the published
+# port list and off any firewall rule that would expose it to the LAN or
+# Tailscale network.

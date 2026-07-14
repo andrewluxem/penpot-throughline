@@ -28,7 +28,7 @@ services:
     image: penpotapp/frontend:2.16@sha256:4725b4698d8d1bd25ee1666e0d900d20da8937fea845c6a088f76cd69293560b
     restart: unless-stopped
     ports:
-      - "9001:80"
+      - "9001:8080"
     volumes:
       - penpot_assets:/opt/data/assets
     depends_on:
@@ -67,11 +67,11 @@ services:
       # PENPOT_SMTP_TLS: "${PENPOT_SMTP_TLS:-true}"
       # PENPOT_SMTP_DEFAULT_FROM: "${PENPOT_SMTP_DEFAULT_FROM}"
       # PENPOT_SMTP_DEFAULT_REPLY_TO: "${PENPOT_SMTP_DEFAULT_REPLY_TO}"
-      # Flags — removed disable-secure-session-cookies and disable-email-verification
-      # enable-registration: allows new accounts to be created from the login page
-      # Disable this after creating your initial account if you want a closed instance
-      # Add enable-smtp after configuring SMTP above
-      PENPOT_FLAGS: "enable-login-with-password enable-registration"
+      # Flags
+      # disable-email-verification: safe for local dev with no SMTP; remove and configure
+      #   SMTP above before exposing this instance to the network
+      # enable-registration: allows new accounts; disable after creating your initial account
+      PENPOT_FLAGS: "enable-login-with-password enable-registration disable-email-verification"
 
   penpot-exporter:
     # Pin: penpotapp/exporter:2.16 — re-verify on each release
@@ -80,6 +80,7 @@ services:
     environment:
       PENPOT_PUBLIC_URI: "http://penpot-frontend"
       PENPOT_REDIS_URI: "redis://penpot-redis/0"
+      PENPOT_SECRET_KEY: "${PENPOT_SECRET_KEY:?PENPOT_SECRET_KEY is required — see .env.example}"
 
   penpot-postgres:
     # Pin: postgres:15 — re-verify on each release

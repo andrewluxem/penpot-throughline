@@ -30,33 +30,47 @@ Sets up the ThroughLine ↔ Penpot integration in a new project. Run this once b
 
 ---
 
-## MCP Configuration
+## MCP Configuration (interactive sessions only)
 
-Add to your project's `.mcp.json` (or the Claude Code global MCP config):
+The Penpot MCP is **not** a standalone stdio server, and there is **no `.mcp.json` `command` entry for it.** It is a browser plugin served by the `penpotapp/mcp:2.16` container on **port 4400**. It bridges tool calls over the WS session while the editor is open. There is no separate process to launch from Claude Code's side and no token to configure.
 
-```json
-{
-  "mcpServers": {
-    "penpot": {
-      "command": "penpot-mcp",
-      "env": {
-        "PENPOT_BASE_URL": "http://localhost:9001"
-      }
-    }
-  }
-}
+**Do not** put `"command": "penpot-mcp"` in `.mcp.json`. No first-party binary of that name ships with the monorepo image; the only thing that name resolves to is the standalone `penpot/penpot-mcp` repo, which is CVE-vulnerable (CVE-2026-45805). A standalone-process config is both architecturally wrong and a security risk.
+
+What this means in practice:
+- **Interactive only.** MCP tools exist only while the `penpotapp/mcp:2.16` container is running and a browser is open on the Penpot editor. Headless/CI runs must use the REST API path (Steps 1–5 below).
+- **Separate container.** The MCP plugin server is `penpotapp/mcp:2.16`, which runs its own Vite plugin server on port 4400. It is not part of the `penpot-frontend` or `penpot-backend` images. Add it to your compose when you need interactive MCP (see compose snippet below).
+- **Security:** Use only `penpotapp/mcp:2.16` — never the standalone `penpot/penpot-mcp` repo (CVE-2026-45805) or the community `montevive/penpot-mcp` (stores a plaintext password, logs the session token).
+
+### Adding the MCP container (optional, interactive sessions only)
+
+Add to `ops/docker-compose.hardened.yaml` when you need the interactive MCP path:
+
+```yaml
+penpot-mcp:
+  # Pin by digest before use — this is a placeholder tag
+  image: penpotapp/mcp:2.16
+  restart: unless-stopped
+  ports:
+    - "127.0.0.1:4400:4400"   # bind localhost only — never expose externally
+  environment:
+    PENPOT_BASE_URL: "http://penpot-frontend"
 ```
 
-**Important:** Use `penpotapp/mcp:2.16` (the monorepo-bundled plugin) — never the standalone `penpot/penpot-mcp` repo (CVE-2026-45805) or the community `montevive/penpot-mcp` (stores plaintext password, logs session token).
+Binding to `127.0.0.1` ensures the plugin server is reachable from your browser but not from the LAN or Tailscale.
 
-To install the plugin inside the Penpot editor UI:
+### Installing the plugin in the Penpot editor
+
+Once the MCP container is running:
+
 1. Open the Penpot editor (any file)
 2. Click the plugin icon in the top toolbar (puzzle piece)
-3. Paste the plugin manifest URL: `http://<host>:4400/manifest.json`
-   (e.g. `http://localhost:4400/manifest.json` for a local instance)
+3. Paste the plugin manifest URL: `http://localhost:4400/manifest.json`
 
-   **Verified URL for your instance: `http://localhost:9001/manifest.json` — confirm it returns JSON before pasting in the editor.**
-   Run `curl -s http://localhost:9001/manifest.json | head -5` to check; if it returns HTML instead of JSON, try port 4400: `curl -s http://localhost:4400/manifest.json | head -5`.
+Verify it's serving correctly first:
+```bash
+curl -s http://localhost:4400/manifest.json | python3 -m json.tool | head -10
+```
+Expected: JSON with `name`, `host`, `code` fields. If you get HTML, the container isn't running.
 
 ---
 

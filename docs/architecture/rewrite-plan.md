@@ -132,7 +132,7 @@ A Transit decoder is not required for read operations. Adding `Accept: applicati
 
 Both open questions are now resolved. Port begins:
 
-1. `penpot-environment-setup` — low-risk starting point; validates the MCP connection end-to-end
+1. `penpot-environment-setup` — low-risk starting point; validates the REST connection end-to-end and documents the MCP as the interactive browser-plugin path (port 4400, separate container, not headless)
 2. `design-system-audit` — validates MCP read depth for the interactive path
 3. `token-builder` / `token-sheet-builder` — depends on token-sets validation
 4. `token-sync-layer` / `token-crosswalk-builder` — depends on REST API depth + token-sets

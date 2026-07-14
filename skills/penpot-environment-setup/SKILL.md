@@ -52,7 +52,11 @@ Add to your project's `.mcp.json` (or the Claude Code global MCP config):
 To install the plugin inside the Penpot editor UI:
 1. Open the Penpot editor (any file)
 2. Click the plugin icon in the top toolbar (puzzle piece)
-3. Paste the plugin manifest URL: `http://localhost:9001/plugin-manifest.json`
+3. Paste the plugin manifest URL: `http://<host>:4400/manifest.json`
+   (e.g. `http://localhost:4400/manifest.json` for a local instance)
+
+   **Verified URL for your instance: `http://localhost:9001/manifest.json` — confirm it returns JSON before pasting in the editor.**
+   Run `curl -s http://localhost:9001/manifest.json | head -5` to check; if it returns HTML instead of JSON, try port 4400: `curl -s http://localhost:4400/manifest.json | head -5`.
 
 ---
 

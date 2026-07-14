@@ -60,7 +60,7 @@ Validated against a live self-hosted Penpot 2.16 instance via cookie-auth sessio
 - `GET /api/rpc/command/get-project-files?project-id=<id>` → returns file list
 - `GET /api/rpc/command/get-file?id=<id>&features=<comma-separated>` → returns **full file data** including `data.pages`, component tree, and token data
 
-The client must declare feature support matching what the file uses (pass all features from `get-teams` response). The API returns Transit+JSON encoding (`~:` keywords, `~u` UUIDs, `~m` timestamps, `~#set` sets) — the ThroughLine skill will need a Transit decoder or must negotiate `application/json` content type.
+The client must declare feature support matching what the file uses (pass all features from `get-teams` response). The API returns Transit+JSON by default, but adding `Accept: application/json` to requests against Penpot 2.16 returns clean DTCG JSON directly — no Transit decoder needed for read operations (validated 2026-07-14).
 
 **Conclusion:** The `token-sync-layer` and `token-crosswalk-builder` skills can be implemented headlessly via REST API without requiring the MCP. The MCP remains useful for interactive/live sessions but is not a blocker for CI.
 
@@ -126,7 +126,7 @@ The REST API returns Transit+JSON. All skills that call the REST API must decode
 | `~#set [...]` | Set (deduplicated array) |
 | `~#ordered-map [k1,v1,k2,v2,...]` | Order-preserving map (array of alternating k/v) |
 
-A lightweight Transit decoder must be implemented in the `token-sync-layer` skill (or as a shared utility in the monorepo) before token data can be consumed. Alternatively, negotiate `application/json` content type if Penpot supports it — TBD during skill implementation.
+A Transit decoder is not required for read operations. Adding `Accept: application/json` to requests against Penpot 2.16 returns clean DTCG JSON directly (validated 2026-07-14). The `token-sync-layer` skill should send this header on all GET requests to avoid Transit decoding entirely.
 
 ## Port sequence
 
